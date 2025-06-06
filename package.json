@@ -1,0 +1,22 @@
+{
+  "name": "face-match-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^1.7.4",
+    "canvas": "^2.11.2",
+    "express": "^4.18.2",
+    "face-api.js": "^0.22.2",
+    "node-fetch": "^3.3.2",
+    "sharp": "^0.32.6"
+  }
+}
