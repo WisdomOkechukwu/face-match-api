@@ -114,6 +114,8 @@ app.post('/compare-faces', async (req, res) => {
       .detectAllFaces(img2)
       .withFaceLandmarks()
       .withFaceDescriptors();
+
+    console.log(detections2);
     console.log('Face detection complete for image 2.');
 
     console.log(
