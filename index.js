@@ -80,6 +80,10 @@ async function loadImage(imagePath) {
   return img;
 }
 
+app.get('/', (req, res) => {
+  res.send('Project is running');
+});
+
 // Endpoint to compare two images
 app.post('/compare-faces', async (req, res) => {
   if (!modelsLoaded) {
