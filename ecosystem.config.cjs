@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'face-model',
       script: './index.js',
-      watch: true,
+      // watch: true,
       max_restarts: 5,
       restart_delay: 1000,
       out_file: './out.log',
