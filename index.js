@@ -6,8 +6,6 @@ import path from 'path';
 import fs from 'fs';
 import fetch from 'node-fetch';
 import sharp from 'sharp';
-// Remove the separate TensorFlow.js import
-// import * as tf from '@tensorflow/tfjs-node'; // REMOVED
 
 // Import face-api.js and its dependencies for Node.js
 import * as faceapi from 'face-api.js';
@@ -26,8 +24,8 @@ const app = express();
 const port = 9857;
 
 // Middleware to parse JSON and url-encoded bodies
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' })); // Increase limit to handle larger Base64 images
+app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Increase limit for url-encoded as well
 
 // Path to store models
 const MODEL_URL = path.join(__dirname, 'models');
@@ -59,15 +57,35 @@ async function loadModels() {
   }
 }
 
-async function loadImage(imagePath) {
+// Function to load image from URL, local path, or Base64 string
+async function loadImage(imageSource) {
   let buffer;
 
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    const response = await fetch(imagePath);
+  if (imageSource.startsWith('data:image')) {
+    // Handle Base64 image
+    const base64Data = imageSource.replace(
+      /^data:image\/(png|jpeg|jpg);base64,/,
+      '',
+    );
+    buffer = Buffer.from(base64Data, 'base64');
+  } else if (
+    imageSource.startsWith('http://') ||
+    imageSource.startsWith('https://')
+  ) {
+    // Handle URL
+    const response = await fetch(imageSource);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image from URL: ${response.statusText}`);
+    }
     const arrayBuffer = await response.arrayBuffer();
     buffer = Buffer.from(arrayBuffer);
   } else {
-    buffer = fs.readFileSync(path.resolve(imagePath));
+    // Assume local file path
+    try {
+      buffer = fs.readFileSync(path.resolve(imageSource));
+    } catch (error) {
+      throw new Error(`Failed to read local image file: ${error.message}`);
+    }
   }
 
   const image = await sharp(buffer)
@@ -92,35 +110,28 @@ app.post('/compare-faces', async (req, res) => {
       .json({ error: 'Models are still loading. Please try again shortly.' });
   }
 
-  const { image1Path, image2Path, threshold = 0.6 } = req.body;
+  const { image1, image2, threshold = 0.6 } = req.body; // Renamed image1Path, image2Path to image1, image2
 
-  if (!image1Path || !image2Path) {
+  if (!image1 || !image2) {
     return res.status(400).json({
       error:
-        'Please provide both image1Path and image2Path in the request body.',
+        'Please provide both image1 and image2 in the request body. These can be URLs, local paths, or Base64 strings.',
     });
   }
 
   try {
-    const img1 = await loadImage(image1Path);
-    const img2 = await loadImage(image2Path);
+    const img1 = await loadImage(image1);
+    const img2 = await loadImage(image2);
 
     const detections1 = await faceapi
       .detectAllFaces(img1)
       .withFaceLandmarks()
       .withFaceDescriptors();
 
-    console.log(detections1);
-    console.log('Face detection complete for image 1.');
-
-    console.log('Attempting face detection for image 2...');
     const detections2 = await faceapi
       .detectAllFaces(img2)
       .withFaceLandmarks()
       .withFaceDescriptors();
-
-    console.log(detections2);
-    console.log('Face detection complete for image 2.');
 
     console.log(
       `Detected ${detections1.length} faces in image 1 and ${detections2.length} faces in image 2.`,
@@ -171,13 +182,16 @@ loadModels().then(() => {
   app.listen(port, () => {
     console.log(`Face match app listening at http://localhost:${port}`);
     console.log(
-      `Send POST request to http://localhost:${port}/compare-faces with image1Path and image2Path in body.`,
+      `Send POST request to http://localhost:${port}/compare-faces with image1 and image2 in body.`,
     );
     console.log(
-      `Example for local files: curl -X POST -H "Content-Type: application/json" -d '{"image1Path": "person1.jpg", "image2Path": "person1_another_pose.jpg"}' http://localhost:3000/compare-faces`,
+      `Example for local files: curl -X POST -H "Content-Type: application/json" -d '{"image1": "person1.jpg", "image2": "person1_another_pose.jpg"}' http://localhost:9857/compare-faces`,
     );
     console.log(
-      `Example for URLs: curl -X POST -H "Content-Type: application/json" -d '{"image1Path": "https://example.com/image1.jpg", "image2Path": "https://example.com/image2.jpg"}' http://localhost:3000/compare-faces`,
+      `Example for URLs: curl -X POST -H "Content-Type: application/json" -d '{"image1": "https://example.com/image1.jpg", "image2": "https://example.com/image2.jpg"}' http://localhost:9857/compare-faces`,
+    );
+    console.log(
+      `Example for Base64: curl -X POST -H "Content-Type: application/json" -d '{"image1": "data:image/jpeg;base64,...", "image2": "data:image/png;base64,..."}' http://localhost:9857/compare-faces`,
     );
   });
 });
