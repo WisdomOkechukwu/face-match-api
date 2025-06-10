@@ -23,7 +23,7 @@ const __dirname = path.dirname(__filename);
 faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 
 const app = express();
-const port = 3000;
+const port = 9857;
 
 // Middleware to parse JSON and url-encoded bodies
 app.use(express.json());
